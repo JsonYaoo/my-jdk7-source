@@ -314,6 +314,7 @@ public class ObjectStreamClass implements Serializable {
      * @param   all if true, return descriptors for all classes; if false, only
      *          return descriptors for serializable classes
      */
+    // 20201110 从缓存获取ObjectStreamClass对象
     static ObjectStreamClass lookup(Class<?> cl, boolean all) {
         if (!(all || Serializable.class.isAssignableFrom(cl))) {
             return null;
@@ -577,6 +578,7 @@ public class ObjectStreamClass implements Serializable {
     /**
      * Initializes class descriptor representing a non-proxy class.
      */
+    // 20201110 初始化ObjectStreamClass对象
     void initNonProxy(ObjectStreamClass model,
                       Class<?> cl,
                       ClassNotFoundException resolveEx,
@@ -585,7 +587,7 @@ public class ObjectStreamClass implements Serializable {
     {
         this.cl = cl;
         this.resolveEx = resolveEx;
-        this.superDesc = superDesc;
+        this.superDesc = superDesc;// 20201110 对象的父类Class
         name = model.name;
         suid = Long.valueOf(model.getSerialVersionUID());
         isProxy = false;
@@ -599,6 +601,7 @@ public class ObjectStreamClass implements Serializable {
         numObjFields = model.numObjFields;
 
         if (cl != null) {
+            // 20201110 流数据对象
             localDesc = lookup(cl, true);
             if (localDesc.isProxy) {
                 throw new InvalidClassException(
@@ -646,10 +649,10 @@ public class ObjectStreamClass implements Serializable {
 
             cons = localDesc.cons;
             writeObjectMethod = localDesc.writeObjectMethod;
-            readObjectMethod = localDesc.readObjectMethod;
+            readObjectMethod = localDesc.readObjectMethod;// 20201110 流数据对象获取readObejectMethod方法, 赋值到新ObjectStreamClass成员变量中
             readObjectNoDataMethod = localDesc.readObjectNoDataMethod;
             writeReplaceMethod = localDesc.writeReplaceMethod;
-            readResolveMethod = localDesc.readResolveMethod;
+            readResolveMethod = localDesc.readResolveMethod;// 20201110 流数据对象获取readResolve方法, 赋值到新ObjectStreamClass成员变量中
             if (deserializeEx == null) {
                 deserializeEx = localDesc.deserializeEx;
             }
@@ -1096,11 +1099,13 @@ public class ObjectStreamClass implements Serializable {
      * descriptor is not associated with a class, or if the class is
      * non-serializable or does not define readResolve.
      */
+    // 20201110 反射调用流对象的readResole方法
     Object invokeReadResolve(Object obj)
         throws IOException, UnsupportedOperationException
     {
         if (readResolveMethod != null) {
             try {
+                // 20201110 反射调用
                 return readResolveMethod.invoke(obj, (Object[]) null);
             } catch (InvocationTargetException ex) {
                 Throwable th = ex.getTargetException();

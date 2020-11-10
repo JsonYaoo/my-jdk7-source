@@ -357,6 +357,7 @@ public class ObjectInputStream
      *          stream instead of objects.
      * @throws  IOException Any of the usual Input/Output related exceptions.
      */
+    // 20201110 单例的反序列化漏洞 readResole()方法源码阅读 -> ObjectInputStream源码
     public final Object readObject()
         throws IOException, ClassNotFoundException
     {
@@ -367,6 +368,7 @@ public class ObjectInputStream
         // if nested read, passHandle contains handle of enclosing object
         int outerHandle = passHandle;
         try {
+            // 20201110 流对象使用默认构造器构造时, 根据默认构造器逻辑获取
             Object obj = readObject0(false);
             handles.markDependency(outerHandle, passHandle);
             ClassNotFoundException ex = handles.lookupException(passHandle);
@@ -453,10 +455,12 @@ public class ObjectInputStream
      * @throws  IOException if an I/O error occurs during deserialization
      * @since   1.4
      */
+    // 20201110 读取反序列化数据
     public Object readUnshared() throws IOException, ClassNotFoundException {
         // if nested read, passHandle contains handle of enclosing object
         int outerHandle = passHandle;
         try {
+            // 20201110 读取反序列化对象
             Object obj = readObject0(true);
             handles.markDependency(outerHandle, passHandle);
             ClassNotFoundException ex = handles.lookupException(passHandle);
@@ -1296,6 +1300,7 @@ public class ObjectInputStream
     /**
      * Underlying readObject implementation.
      */
+    // 20201110 读取反序列化对象
     private Object readObject0(boolean unshared) throws IOException {
         boolean oldMode = bin.getBlockDataMode();
         if (oldMode) {
@@ -1321,6 +1326,8 @@ public class ObjectInputStream
         }
 
         depth++;
+
+        // 20201110 根据读取类型进行读取操作
         try {
             switch (tc) {
                 case TC_NULL:
@@ -1346,6 +1353,7 @@ public class ObjectInputStream
                 case TC_ENUM:
                     return checkResolve(readEnum(unshared));
 
+                    // 20201110 读取Object类型
                 case TC_OBJECT:
                     return checkResolve(readOrdinaryObject(unshared));
 
@@ -1391,6 +1399,7 @@ public class ObjectInputStream
      * occurred.  Expects that passHandle is set to given object's handle prior
      * to calling this method.
      */
+    // 20201110 根据封装好的ObjectStreamClass对象
     private Object checkResolve(Object obj) throws IOException {
         if (!enableResolve || handles.lookupException(passHandle) != null) {
             return obj;
@@ -1499,9 +1508,11 @@ public class ObjectInputStream
      * resolved to a class in the local VM, a ClassNotFoundException is
      * associated with the class descriptor's handle.
      */
+    // 20201110 封装ObjectStreamClass对象
     private ObjectStreamClass readClassDesc(boolean unshared)
         throws IOException
     {
+        // 20201110 获取读取数据的对象
         byte tc = bin.peekByte();
         switch (tc) {
             case TC_NULL:
@@ -1513,6 +1524,7 @@ public class ObjectInputStream
             case TC_PROXYCLASSDESC:
                 return readProxyDesc(unshared);
 
+                // 20201110 根据非代理对象类型封装ObjectStreamClass对象
             case TC_CLASSDESC:
                 return readNonProxyDesc(unshared);
 
@@ -1585,6 +1597,7 @@ public class ObjectInputStream
      * class descriptor cannot be resolved to a class in the local VM, a
      * ClassNotFoundException is associated with the descriptor's handle.
      */
+    // 20201110 根据非代理对象类型封装ObjectStreamClass对象
     private ObjectStreamClass readNonProxyDesc(boolean unshared)
         throws IOException
     {
@@ -1592,6 +1605,7 @@ public class ObjectInputStream
             throw new InternalError();
         }
 
+        // 20201110 创建ObjectStreamClass对象
         ObjectStreamClass desc = new ObjectStreamClass();
         int descHandle = handles.assign(unshared ? unsharedMarker : desc);
         passHandle = NULL_HANDLE;
@@ -1619,6 +1633,7 @@ public class ObjectInputStream
         }
         skipCustomData();
 
+        // 20201110 初始化ObjectStreamClass对象
         desc.initNonProxy(readDesc, cl, resolveEx, readClassDesc(false));
 
         handles.finish(descHandle);
@@ -1761,6 +1776,7 @@ public class ObjectInputStream
      * associated with object's handle).  Sets passHandle to object's assigned
      * handle.
      */
+    // 20201110 读取Obeject类型的原本数据
     private Object readOrdinaryObject(boolean unshared)
         throws IOException
     {
@@ -1768,6 +1784,7 @@ public class ObjectInputStream
             throw new InternalError();
         }
 
+        // 20201110 封装ObjectStreamClass对象
         ObjectStreamClass desc = readClassDesc(false);
         desc.checkDeserialize();
 
@@ -1779,6 +1796,7 @@ public class ObjectInputStream
 
         Object obj;
         try {
+            // 20201110 根据封装在ObjectStreamClass对象的流对象的构造方法, 构造出新的流数据(反序列化)
             obj = desc.isInstantiable() ? desc.newInstance() : null;
         } catch (Exception ex) {
             throw (IOException) new InvalidClassException(
@@ -1804,12 +1822,13 @@ public class ObjectInputStream
             handles.lookupException(passHandle) == null &&
             desc.hasReadResolveMethod())
         {
+            // 20201110 反射调用流对象的readResole方法
             Object rep = desc.invokeReadResolve(obj);
             if (unshared && rep.getClass().isArray()) {
                 rep = cloneArray(rep);
             }
             if (rep != obj) {
-                handles.setObject(passHandle, obj = rep);
+                handles.setObject(passHandle, obj = rep);// 20201110 将返回值替换为readResole方法里设置的值
             }
         }
 
