@@ -320,10 +320,14 @@ public class ProxyGenerator {
     /**
      * Generate a proxy class given a name and a list of proxy interfaces.
      */
+    // 20201111 生成一个指定名称和实现接口列表的Proxy Class
     public static byte[] generateProxyClass(final String name,
                                             Class[] interfaces)
     {
+        // 20201111 Proxy Class参数实体 名称 & 实现接口列表
         ProxyGenerator gen = new ProxyGenerator(name, interfaces);
+
+
         final byte[] classFile = gen.generateClassFile();
 
         if (saveGeneratedFiles) {
@@ -409,12 +413,14 @@ public class ProxyGenerator {
      * Generate a class file for the proxy class.  This method drives the
      * class file generation process.
      */
+    // 20201111 生成Proxy Class类文件
     private byte[] generateClassFile() {
 
         /* ============================================================
          * Step 1: Assemble ProxyMethod objects for all methods to
          * generate proxy dispatching code for.
          */
+        // 20201111 步骤1: 为所有方法组装ProxyMethod对象以生成代理调度代码
 
         /*
          * Record that proxy methods are needed for the hashCode, equals,
@@ -423,6 +429,7 @@ public class ProxyGenerator {
          * java.lang.Object take precedence over duplicate methods in the
          * proxy interfaces.
          */
+        // 20201111 添加java.lang.Object中的hashCode、equals、toString方法
         addProxyMethod(hashCodeMethod, Object.class);
         addProxyMethod(equalsMethod, Object.class);
         addProxyMethod(toStringMethod, Object.class);
@@ -432,6 +439,7 @@ public class ProxyGenerator {
          * earlier interfaces precedence over later ones with duplicate
          * methods.
          */
+        // 20201111 添加委托类实现的接口列表中所有声明的方法
         for (int i = 0; i < interfaces.length; i++) {
             Method[] methods = interfaces[i].getMethods();
             for (int j = 0; j < methods.length; j++) {
