@@ -306,12 +306,14 @@ public class ProxyGenerator {
     // end of constants copied from sun.tools.java.RuntimeConstants
 
     /** name of the superclass of proxy classes */
+    // 20201112 代理类的父类限定类名
     private final static String superclassName = "java/lang/reflect/Proxy";
 
     /** name of field for storing a proxy instance's invocation handler */
     private final static String handlerFieldName = "h";
 
     /** debugging flag for saving generated class files */
+    // 20201112 用于保存生成的类文件的调试标志
     private final static boolean saveGeneratedFiles =
         java.security.AccessController.doPrivileged(
             new GetBooleanAction(
@@ -327,9 +329,10 @@ public class ProxyGenerator {
         // 20201111 Proxy Class参数实体 名称 & 实现接口列表
         ProxyGenerator gen = new ProxyGenerator(name, interfaces);
 
-
+        // 20201111 生成Proxy Class类文件字节数组
         final byte[] classFile = gen.generateClassFile();
 
+        // 20201112 创建文件目录 & 根据字节流创建实际$proxy1.class文件
         if (saveGeneratedFiles) {
             java.security.AccessController.doPrivileged(
             new java.security.PrivilegedAction<Void>() {
@@ -413,7 +416,7 @@ public class ProxyGenerator {
      * Generate a class file for the proxy class.  This method drives the
      * class file generation process.
      */
-    // 20201111 生成Proxy Class类文件
+    // 20201111 生成Proxy Class类文件字节数组
     private byte[] generateClassFile() {
 
         /* ============================================================
@@ -451,6 +454,7 @@ public class ProxyGenerator {
          * For each set of proxy methods with the same signature,
          * verify that the methods' return types are compatible.
          */
+        // 20201112 校验所有方法的返回值
         for (List<ProxyMethod> sigmethods : proxyMethods.values()) {
             checkReturnTypes(sigmethods);
         }
@@ -459,108 +463,136 @@ public class ProxyGenerator {
          * Step 2: Assemble FieldInfo and MethodInfo structs for all of
          * fields and methods in the class we are generating.
          */
+        // 20201112 装配Field和Method到Class中
         try {
+            // 20201112 添加构造方法
             methods.add(generateConstructor());
 
+            // 20201112 遍历所有方法
             for (List<ProxyMethod> sigmethods : proxyMethods.values()) {
                 for (ProxyMethod pm : sigmethods) {
 
+                    // 20201112 添加私有&静态方法名称到Field中
                     // add static field for method's Method object
                     fields.add(new FieldInfo(pm.methodFieldName,
                         "Ljava/lang/reflect/Method;",
                          ACC_PRIVATE | ACC_STATIC));
 
+                    // 20201112 添加所有方法到method中
                     // generate code for proxy method and add it
                     methods.add(pm.generateMethod());
                 }
             }
 
+            // 20201112 添加静态初始化方法
             methods.add(generateStaticInitializer());
 
         } catch (IOException e) {
             throw new InternalError("unexpected I/O Exception");
         }
 
+        // 20201112 方法不能大于2^16个
         if (methods.size() > 65535) {
             throw new IllegalArgumentException("method limit exceeded");
         }
+
+        // 20201112 方法不能大于2^16个
         if (fields.size() > 65535) {
             throw new IllegalArgumentException("field limit exceeded");
         }
 
+        // 20201112 输出最终Class文件
         /* ============================================================
          * Step 3: Write the final class file.
          */
 
+        // 20201112 在开始输出最终Class文件之前, 确保为以下项保留了常量池索引
         /*
          * Make sure that constant pool indexes are reserved for the
          * following items before starting to write the final class file.
          */
+        // 20201112 转换包名为Class文件实际路径名
         cp.getClass(dotToSlash(className));
+
+        // 20201112 获取 | 分配常量类项索引
         cp.getClass(superclassName);
+
+        // 20201112 转换接口包名为实际路径名
         for (int i = 0; i < interfaces.length; i++) {
             cp.getClass(dotToSlash(interfaces[i].getName()));
         }
 
+        // 20201112 不允许在该点之后添加新的常量池, 因为我们将要写入最终的常量池表
         /*
          * Disallow new constant pool additions beyond this point, since
          * we are about to write the final constant pool table.
          */
+        // 20201112 设置常量池表只可读
         cp.setReadOnly();
 
+        // 20201112 生成文件, 获取输出流
         ByteArrayOutputStream bout = new ByteArrayOutputStream();
         DataOutputStream dout = new DataOutputStream(bout);
 
         try {
+            // 20201112 开始输出Class文件结构
             /*
              * Write all the items of the "ClassFile" structure.
              * See JVMS section 4.1.
              */
                                         // u4 magic;
-            dout.writeInt(0xCAFEBABE);
+            dout.writeInt(0xCAFEBABE);// 20201112 模数
                                         // u2 minor_version;
-            dout.writeShort(CLASSFILE_MINOR_VERSION);
+            dout.writeShort(CLASSFILE_MINOR_VERSION);// 20201112 副版本号
                                         // u2 major_version;
-            dout.writeShort(CLASSFILE_MAJOR_VERSION);
+            dout.writeShort(CLASSFILE_MAJOR_VERSION);// 20201112 主版本号
 
+            // 20201112 写入常量池到
             cp.write(dout);             // (write constant pool)
 
                                         // u2 access_flags;
-            dout.writeShort(ACC_PUBLIC | ACC_FINAL | ACC_SUPER);
+            dout.writeShort(ACC_PUBLIC | ACC_FINAL | ACC_SUPER);// 20201112 写入修饰符
                                         // u2 this_class;
-            dout.writeShort(cp.getClass(dotToSlash(className)));
+            dout.writeShort(cp.getClass(dotToSlash(className)));// 20201112 写入实际路径名
                                         // u2 super_class;
-            dout.writeShort(cp.getClass(superclassName));
+            dout.writeShort(cp.getClass(superclassName));// 20201112 写入父类包名
 
                                         // u2 interfaces_count;
-            dout.writeShort(interfaces.length);
+            dout.writeShort(interfaces.length);// 20201112 写入接口列表长度
                                         // u2 interfaces[interfaces_count];
+
+            // 20201112 写入接口实际路径名
             for (int i = 0; i < interfaces.length; i++) {
                 dout.writeShort(cp.getClass(
                     dotToSlash(interfaces[i].getName())));
             }
 
                                         // u2 fields_count;
-            dout.writeShort(fields.size());
+            dout.writeShort(fields.size());// 20201112 写入Field大小
                                         // field_info fields[fields_count];
+
+            // 20201112 写入Field结构
             for (FieldInfo f : fields) {
                 f.write(dout);
             }
 
                                         // u2 methods_count;
-            dout.writeShort(methods.size());
+            dout.writeShort(methods.size());// 20201112 写入Method大小
                                         // method_info methods[methods_count];
+
+            // 20201112 写入Method结构
             for (MethodInfo m : methods) {
                 m.write(dout);
             }
 
                                          // u2 attributes_count;
-            dout.writeShort(0); // (no ClassFile attributes for proxy classes)
+            dout.writeShort(0); // (no ClassFile attributes for proxy classes)// 20201112 写入文件结束符
 
         } catch (IOException e) {
             throw new InternalError("unexpected I/O Exception");
         }
 
+        // 20201112 返回文件字节流
         return bout.toByteArray();
     }
 
@@ -1432,6 +1464,7 @@ public class ProxyGenerator {
      * package separator, the representation used in the class file
      * format (see JVMS section 4.2).
      */
+    // 20201112 转换包名为Class文件实际路径名
     private static String dotToSlash(String name) {
         return name.replace('.', '/');
     }
@@ -1751,6 +1784,7 @@ public class ProxyGenerator {
         /**
          * Get or assign the index for a CONSTANT_Class entry.
          */
+        // 20201112 获取 | 分配常量类项索引
         public short getClass(String name) {
             short utf8Index = getUtf8(name);
             return getIndirect(new IndirectEntry(
@@ -1831,6 +1865,7 @@ public class ProxyGenerator {
          * "constant_pool[]" items of the "ClassFile" structure, as
          * described in JVMS section 4.1.
          */
+        // 20201112 写入常量池到Class文件中
         public void write(OutputStream out) throws IOException {
             DataOutputStream dataOut = new DataOutputStream(out);
 
